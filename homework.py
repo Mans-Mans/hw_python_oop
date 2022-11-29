@@ -1,6 +1,5 @@
 from typing import Type
-from dataclasses import dataclass
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 
 
 @dataclass
@@ -23,10 +22,10 @@ class InfoMessage:
 
 class Training:
     """Базовый класс тренировки."""
-    MIN_IN_H: float = 60
+    MIN_IN_H: float = 60.0
     KMH_IN_MSEC: float = 0.278
-    M_IN_KM: float = 1000
-    CM_IN_M: float = 100
+    M_IN_KM: float = 1000.0
+    CM_IN_M: float = 100.0
     LEN_STEP: float = 0.65
 
     def __init__(self,
@@ -49,7 +48,7 @@ class Training:
     def get_spent_calories(self) -> float:
         """Получить количество затраченных калорий."""
         raise NotImplementedError('Определите get_spent calories в '
-                                  'class' + self.__class__.__name__)
+                                  'class ' + type(self).__name__)
 
     def show_training_info(self) -> InfoMessage:
         """Вернуть информационное сообщение о выполненной тренировке."""
@@ -63,7 +62,7 @@ class Training:
 
 class Running(Training):
     """Тренировка: бег."""
-    CALORIES_MEAN_SPEED_MULTIPLIER: float = 18
+    CALORIES_MEAN_SPEED_MULTIPLIER: float = 18.0
     CALORIES_MEAN_SPEED_SHIFT: float = 1.79
 
     def get_spent_calories(self) -> float:
@@ -103,7 +102,7 @@ class Swimming(Training):
     """Тренировка: плавание."""
     LEN_STEP: float = 1.38
     CALORIES_AVARAGE_SPEED_MULTIPLIER: float = 1.1
-    CALORIES_WEIGHT_DURATION_MULTIPLIER: float = 2
+    CALORIES_WEIGHT_DURATION_MULTIPLIER: float = 2.0
 
     def __init__(self, action: float,
                  duration: float,
@@ -136,10 +135,12 @@ def read_package(workout_type: str, data: list) -> Training:
                                            'WLK': SportsWalking
                                            }
     if workout_type in commands:
-        training_class: Training = commands[workout_type](*data)
-        return training_class
+        return commands[workout_type](*data)
     else:
-        raise TypeError("Не удалось определить тип тренировки")
+        raise TypeError(f'Введенная вами тренировка "{workout_type}" '
+                        f'не распознана. Датчики принимают только '
+                        f'следющие значения: '
+                        f'{"; ".join(list(commands.keys()))}.')
 
 
 def main(training: Training) -> None:
