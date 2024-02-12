@@ -10,8 +10,8 @@
 * [Сериализаторы](#сериализаторы)
   * [Документ](#документ-1)
     * [Создание документа и ресурса](#создание-документа-и-ресурса)
-    * [Изменение документа и ресурса]
-    * [Получение документа]
+    * [Изменение документа и ресурса](#изменение-документа-и-ресурса)
+    * [Получение документа](#получение-документа)
   * [Папка]
   * [Разрешение]
 * [View функции]
@@ -322,11 +322,9 @@ class DocumentByIDSerializer(serializers.ModelSerializer):
         fields = ("creator", "name", "folder",
                   "description", "resources", "active_version")
 ````
-<a>
 ````
-class DocumentResourceSerializer(serializers.ModelSerializer):
+<a>class DocumentResourceSerializer(serializers.ModelSerializer):</a>
     class Meta:
         model = DocumentResource
         fields = ("id", "file")
 ````
-</a>
