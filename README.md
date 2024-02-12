@@ -40,14 +40,9 @@
     * [Создание разрешения]
     * [Удаление разрешения]
     * [Просмотр разрешений]
-* [URL адреса]
-  * [Документ]
-  * [Ресурс документа]
-  * [Папка]
-  * [Разрешения]
 * [Панель админа]
   * [Документы]
-  * [Ресурсы документа]
+  * [Документ ресурсы]
   * [Папки]
   * [Разрешения]
 ## <a>Модели</a>
@@ -649,7 +644,7 @@ def rebind_resource_to_document(document: Document,
         return resource
     return None
 ````
-### <a>Папка</a>
+* ### <a>Папка</a>
 #### <a>Создание папки</a>
 ````
 class FolderCreateAPIView(TokenAuthorizationMixin, generics.CreateAPIView):
@@ -808,3 +803,207 @@ class FolderUpdateAPIView(TokenAuthorizationMixin, generics.UpdateAPIView):
     def patch(self, request, **kwargs):
         return self.partial_update(request, **kwargs)
 ````
+* ### <a>Разрешение</a>
+#### <a>Создание разрешения</a>
+Создаёт разрешение пользователю доступ к документу. Добавляет в allowed_user документа выбранного пользователя.
+````
+class CreateDocumentPermissionAPIView(TokenAuthorizationMixin, generics.CreateAPIView):
+    """Создание доступа к документу.\n
+    По эндпоинту "/api/permission/create/document/{id}" создаётся доступ
+    для пользователя к документу.\n
+    В пути запроса указывается {id} документа, к которому нужно дать доступ.\n
+    В теле запроса указывается {id} пользователя, которому нужно дать доступ.\n
+    Доступ: создатель документа.
+    """
+    queryset = Document.objects.all()
+    serializer_class = DocumentPermissionSerializer
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreator,)
+
+    def post(self, request, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        document = self.get_object()
+        user = serializer.validated_data.get("user")
+        if DocumentPermission.objects.filter(document=document,
+                                             user=user).exists():
+            return Response(data={"error":
+                                  "The user already have"
+                                  "permission to this document."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if document.creator == user.id:
+            return Response(data={"error":
+                                  "You can't set permission for creator."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        permission = DocumentPermission(document=document,
+                                        user=user,
+                                        creator=self.request.user.id)
+        permission.save()
+        document.allowed_user.add(permission)
+        return Response(data={"user": user.id, "document": document.id},
+                        status=status.HTTP_201_CREATED)
+````
+Создаёт разрешение пользователю доступ к папке. Добавляет в allowed_user папки выбранного пользователя.
+````
+class CreateFolderPermissionAPIView(TokenAuthorizationMixin, generics.CreateAPIView):
+    """Создание доступа к папке.\n
+    По эндпоинту "/api/permission/create/folder/{id}" создаётся доступ
+    для пользователя к папке.\n
+    В пути запроса указывается {id} папки, к которой нужно дать доступ.\n
+    В теле запроса указывается {id} пользователя, которому нужно дать доступ.\n
+    Доступ: создатель папки.
+    """
+    queryset = Folder.objects.all()
+    serializer_class = FolderPermissionSerializer
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreator,)
+
+    def post(self, request, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        folder = self.get_object()
+        user = serializer.validated_data.get("user")
+        if FolderPermission.objects.filter(folder=folder, user=user).exists():
+            return Response(data={"error":
+                                  "The user already have"
+                                  "permission to this folder."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if folder.creator == user.id:
+            return Response(data={"error":
+                                  "You can't set permission for creator"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        permission = FolderPermission(folder=folder,
+                                      user=user,
+                                      creator=self.request.user.id)
+        permission.save()
+        folder.allowed_user.add(permission)
+        return Response(data={"user": user.id, "folder": folder.id},
+                        status=status.HTTP_201_CREATED)
+````
+#### <a>Удаление разрешения</a>
+Удаляет разрешение на просмотр документа у выбранного пользователя.
+````
+class DeleteDocumentPermissionAPIView(TokenAuthorizationMixin, generics.DestroyAPIView):
+    """Удаление доступа к документу.\n
+    По эндпоинту "/api/permission/delete/document/{id}" удаляется доступ
+    к документу.\n
+    В пути запроса указывается {id} обьекта DocumentPermission,
+    который нужно удалить.\n
+    Доступ: создателю документа.\n
+    """
+    queryset = DocumentPermission.objects.all()
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreator,)
+
+    def delete(self, request, pk):
+        permission = self.get_object()
+        document = permission.document
+        if document.creator != self.request.user.id:
+            return Response(data={"error": "Document permission can"
+                                  "create only document's creator"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        document.allowed_user.remove(permission)
+        permission.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+````
+Удаляет разрешение на просмотр папки у выбранного пользователя.
+````
+class DeleteFolderPermissionAPIView(TokenAuthorizationMixin, generics.DestroyAPIView):
+    """Удаление доступа к папке.\n
+    По эндпоинту "/api/permission/delete/folder/{id}" удаляется доступ
+    к папке.\n
+    В пути запроса указывается {id} обьекта FolderPermission,
+    который нужно удалить.\n
+    Доступ: создателю папки.\n
+    """
+    queryset = FolderPermission.objects.all()
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreator,)
+
+    def delete(self, request, pk):
+        permission = self.get_object()
+        folder = permission.folder
+        if folder.creator != self.request.user.id:
+            return Response(
+                data={"error": "Folder permission"
+                               "can create only folder's creator"},
+                status=status.HTTP_400_BAD_REQUEST)
+        folder.allowed_user.remove(permission)
+        permission.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+````
+#### <a>Просмотр разрешения</a>
+Выводит список всех разрешенных пользователей у документа.
+````
+class GetDocumentPermissionAPIView(TokenAuthorizationMixin, generics.ListAPIView):
+    """Отображение доступа к документу.\n
+    По эндпоинту "/api/permission/get/document/{id}" отображается
+    список пользователей у которых есть доступ к документу.\n
+    В пути запроса указывается {id} документа, к которому будет выведен
+    список разрешенных пользователей.\n
+    Доступ: создатель документа.
+    """
+    queryset = Document.objects.all()
+    serializer_class = DocumentPermissionSerializer
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreator,)
+
+    def get(self, request, *args, **kwargs):
+        document = self.get_object()
+        users = DocumentPermission.objects.filter(
+            document=document).values("user")
+        if not document:
+            return Response({"message": "Document not found."},
+                            status=status.HTTP_404_NOT_FOUND)
+        permission = DocumentPermission.objects.filter(
+            document=document).values("user", "document")
+        if not permission:
+            return Response({"message": "Permission not found."},
+                            status=status.HTTP_404_NOT_FOUND)
+        serializer = self.serializer_class(data=list(users), many=True)
+        serializer.is_valid(raise_exception=True)
+        return Response(list(users), status=status.HTTP_200_OK)
+````
+Выводит список всех разрешенных пользователей у папки.
+````
+class GetFolderPermissionAPIView(TokenAuthorizationMixin, generics.ListAPIView):
+    """Отображение доступа к папке.\n
+    По эндпоинту "/api/permission/get/folder/{id}" отображается
+    список пользователей у которых есть доступ к папке.\n
+    В пути запроса указывается {id} папки, к которой будет выведен
+    список разрешенных пользователей.\n
+    Доступ: создатель папки.
+    """
+    queryset = Folder.objects.all()
+    serializer_class = FolderPermissionSerializer
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreator,)
+
+    def get(self, request, *args, **kwargs):
+        folder = self.get_object()
+        users = FolderPermission.objects.filter(folder=folder).values("user")
+        if not folder:
+            return Response({"message": "Folder not found."},
+                            status=status.HTTP_404_NOT_FOUND)
+        permission = FolderPermission.objects.filter(
+            folder=folder).values("user", "folder")
+        if not permission:
+            return Response({"message": "Permission not found."},
+                            status=status.HTTP_404_NOT_FOUND)
+        serializer = self.serializer_class(data=list(users), many=True)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+````
+## <a>Панель админа</a>
+* ### <a>Документы</a>
+
+
+* ### <a>Документ ресурсы</a>
+
+
+* ### <a>Папки</a>
+
+
+* ### <a>Разрешения</a>
+
