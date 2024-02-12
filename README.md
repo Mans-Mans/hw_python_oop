@@ -46,7 +46,7 @@
   * [Папки]
   * [Разрешения]
 ## <a>Модели</a>
-### <a>Документ</a>
+* ### <a>Документ</a>
 Модель документа наследуется от базовой модели модуля ib_core и имеет __одно обязательное__ поле: название; и __пять необязательных__ полей: описание, ресурсы, активная версия ресурса, папка(расположение документа), разрешенные пользователи. Используется для всех операции связанных с документами.
 ````
 class Document(UUIDModel):
@@ -108,7 +108,7 @@ class Document(UUIDModel):
                           list(self.resources.all())]
         }
 ````
-### <a>Ресурс Документа</a>
+* ### <a>Ресурс Документа</a>
 Модель ресурс документа наследуется от базовой модели модуля ib_core и имеет __два обязательных__ поля: документ, файл. Используется для создания файла и привязки к определенному документу. Место установки файла описано в функции document_resource_file_path().
 ````
 class DocumentResource(UUIDModel):
@@ -136,7 +136,7 @@ class DocumentResource(UUIDModel):
         return f"{self.pk}"
 ````
 #### <a>Функция: путь к файлу</a>
-Эта функция сохраняет файл по пути media/documents/{UUIDДокмента}/ и устанавливает ему название в формате "НазваниефайлаДатаРасширениефайла".
+Эта функция сохраняет файл по пути media/documents/{UUIDДокмента}/{name} и устанавливает ему название{name} в формате "НазваниефайлаДатаРасширениефайла".
 ````
 def document_resource_file_path(instance, filename):
     name, extension = os.path.splitext(filename)
@@ -146,7 +146,7 @@ def document_resource_file_path(instance, filename):
         str(extension)
     )
 ````
-### <a>Папка</a>
+* ### <a>Папка</a>
 Модель папка наследуется от базовой модели модуля ib_core и имеет __одно обязательное__ поле: название; и __три необязательных__ поля: документы, локация(расположение папки), разрешенные пользователи. Используется для всех операции связанных с папками.
 ````
 class Folder(UUIDModel):
@@ -192,7 +192,7 @@ class Folder(UUIDModel):
                           list(self.documents.all())]
         }
 ````
-### <a>Разрешение документа</a>
+* ### <a>Разрешение документа</a>
 Модель наследуется от базовой модели модуля ib_core и имеет __два обязательных__ поля: документ, пользователь. Используется для операции доступа к документу выбранного пользователя.
 ````
 class DocumentPermission(UUIDModel):
@@ -229,7 +229,7 @@ class DocumentPermission(UUIDModel):
     def __str__(self):
         return f"Permission {self.user} for document {self.document.pk}"
 ````
-### <a>Разрешение папки</a>
+* ### <a>Разрешение папки</a>
 Модель наследуется от базовой модели модуля ib_core и имеет __два обязательных__ поля: папка, пользователь. Используется для операции доступа к папке выбранного пользователя.
 ````
 class FolderPermission(UUIDModel):
@@ -267,9 +267,8 @@ class FolderPermission(UUIDModel):
         return f"Permission {self.user} for folder {self.folder.pk}"
 ````
 ## <a>Сериализаторы</a>
-### <a>Документ</a>
-#### <a>Создание документа и ресурса</a>
-
+* ### <a>Документ</a>
+  * #### <a>Создание документа и ресурса</a>
 ````
 class DocumentCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -287,3 +286,47 @@ class DocumentResourceCreateSerializer(serializers.ModelSerializer):
         fields = ["id", "file", "related_document", "set_active"]
         read_only_fields = ("related_document",)
 ````
+  * #### <a>Изменение документа и ресурса</a>
+  При изменение документа происходит валидация параметров name и folder. Не допускается одинакового названии двух документов в одной и той же папке.
+````
+class DocumentUpdateSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(required=False, max_length=155)
+    class Meta:
+        model = Document
+        fields = ("id", "name", "description", "folder", "creator",
+                  "active_version", "resources")
+        read_only_fields = ("creator", "active_version",
+                            "resources",)
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Document.objects.all(),
+                fields=('name', 'folder'),
+                message='Document with name already exsists in this folder.'
+            )
+        ]
+````
+````
+class RebindDocumentResourceSerializer(serializers.Serializer):
+    id = serializers.UUIDField(read_only=True)
+    document = serializers.UUIDField(write_only=True)
+    set_active = serializers.BooleanField(default=True)
+    filename = serializers.CharField(read_only=True)
+````
+  * #### <a>Получение документа</a>
+  Значение resources сериализуется при помощи сериализатора документ ресурса. 
+````
+class DocumentByIDSerializer(serializers.ModelSerializer):
+    resources = DocumentResourceSerializer(required=False, many=True)
+    class Meta:
+        model = Document
+        fields = ("creator", "name", "folder",
+                  "description", "resources", "active_version")
+````
+<a>
+````
+class DocumentResourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DocumentResource
+        fields = ("id", "file")
+````
+</a>
