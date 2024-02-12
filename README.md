@@ -46,6 +46,7 @@
   * [Папки](#папки)
   * [Разрешение документов](#разрешение-документов)
   * [Разрешение папок](#разрешение-папок)
+ * [Инструкция запуска сервера локально]()
 ## <a>Модели</a>
 * ### <a>Документ</a>
 Модель документа наследуется от базовой модели модуля ib_core и имеет __одно обязательное__ поле: название; и __пять необязательных__ полей: описание, ресурсы, активная версия ресурса, папка(расположение документа), разрешенные пользователи. Используется для всех операции связанных с документами.
@@ -1012,3 +1013,80 @@ class GetFolderPermissionAPIView(TokenAuthorizationMixin, generics.ListAPIView):
 * ### <a>Разрешение папок</a>
 Отображаются UUID разрешений, UUID папки, email пользователя, UUID создателя, дата создания.
 ![image](https://github.com/Mans-Mans/hw_python_oop/assets/118307945/98c07469-c2c5-4426-8bba-f3afdd327125)
+## <a>Инструкция запуска сервера локально</a>
+Клонировать репозиторий и перейти в него в командной строке:
+```
+git clone git@gitlab.it-psg.com:ib-elp-it-psg/documents_management_module.git
+```
+Cоздать и активировать виртуальное окружение:
+```
+python -m venv venv
+```
+* Если у вас Linux/macOS
+    ```
+    source env/bin/activate
+    ```
+* Если у вас windows
+    ```
+    source venv/scripts/activate
+    ```
+```
+python -m pip install --upgrade pip
+```
+Установить зависимости из файла requirements.txt:
+```
+pip install -r requirements.txt
+```
+Перейдите в директорию с файлом manage.py
+```
+cd documents_module
+```
+Создайте файл .env:
+```
+touch .env
+```
+Заполните его по примеру env_example:
+```
+DEBUG=True
+SECRET_KEY=django-insecure-_0x8o11zqs28yhn@7aqea&hf=l@(*m(db$6kz7fu@m5rsfsf)    # change
+MODULE_TOKEN=feb77714869835a08fbd2a82c133344bd99b160b   # change
+DATABASE_NAME=YourDBName   # change
+DATABASE_USERNAME=YourUsername   # change
+DATABASE_PASSWORD=YourPassword   # change
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+```
+Перейдите в директорию settings и создайте там local_settings.py:
+```
+cd documents_module/settings
+touch local_settings.py
+```
+Заполните его по примеру с local_settings.example:
+```
+DEBUG = True
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': your_database_name,     # change database name
+        'USER': username,     # change user
+        'PASSWORD': db_password,      # secure password
+        'HOST': db_host,    # change host
+        'PORT': db_host
+    }
+}
+```
+Перейдите в директорию где лежит manage.py и выполните миграции:
+```
+cd ../..
+python manage.py makemigrations
+python manage.py migrate
+```
+Создайте суперюзера:
+```
+python manage.py createsuperuser
+```
+Придумайте пароль и логин. 
+Запустите сервер:
+```
+python manage.py runserver
+```
