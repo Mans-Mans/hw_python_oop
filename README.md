@@ -3,6 +3,7 @@
 * [Модели](#модели)
   * [Документ](#документ)
   * [Ресурс документа](#ресурс-документа)
+    * [Использованная функция](#использовання-функция)
   * [Папка](#папка)
   * [Разрешение документа](#разрешение-документа)
   * [РазрешениеПапки](#разрешение-папки)
@@ -131,6 +132,16 @@ class DocumentResource(UUIDModel):
     def __str__(self):
         return f"{self.pk}"
 ````
+#### <a>Использованная функция</a>
+````
+def document_resource_file_path(instance, filename):
+    name, extension = os.path.splitext(filename)
+    return 'media/documents/{0}/{1}{2}'.format(
+        instance.related_document.pk,
+        f"{str(name)}{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        str(extension)
+    )
+````
 ### <a>Папка</a>
 ````
 class Folder(UUIDModel):
@@ -249,3 +260,4 @@ class FolderPermission(UUIDModel):
         return f"Permission {self.user} for folder {self.folder.pk}"
 ````
 ## <a>Использованные методы</a>
+### <a>Путь до файла</a>
