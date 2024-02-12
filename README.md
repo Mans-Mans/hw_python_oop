@@ -16,13 +16,15 @@
     * [Создание папки](#создание-папки)
     * [Изменение папки](#изменение-папки)
     * [Получение папки](#получение-папки)
-  * [Разрешение]
-* [View функции]
-  * [Документ]
-    * [Создание документа]
-    * [Просмотр документа]
-    * [Удаление документа]
-    * [Редактирование документа]
+  * [Разрешение]()
+    * [Документ]()
+    * [Папка]()
+* [View функции]()
+  * [Документ]()
+    * [Создание документа]()
+    * [Просмотр документа]()
+    * [Удаление документа]()
+    * [Редактирование документа]()
   * [Ресурс документа]
     * [Создание ресурса]
       * [Привязка ресурса к документу]
@@ -378,3 +380,136 @@ class FoldersAndDocumentsSerializer(serializers.Serializer):
     folders = FolderSerializer(required=False, many=True)
     documents = DocumentSerializer(required=False, many=True)
 ````
+* ### <a>Разрешение</a>
+#### <a>Документ</a>
+````
+class DocumentPermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DocumentPermission
+        fields = ("user",)
+````
+#### <a>Папка</a>
+````
+class FolderPermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FolderPermission
+        fields = ("user",)
+````
+## <a>View функции</a>
+* ### <a>Документ</a>
+#### <a>Создание документа</a>
+````
+class DocumentCreateAPIView(TokenAuthorizationMixin, generics.CreateAPIView):
+    """Создание документа.\n
+    По эндпоинту "/api/document/create" документ
+    создаётся без расположения в папке,
+    то есть на главной странице пользователя.\n
+    По эндпоинту "/api/document/create-in-folder/{id}"
+    документ создаётся в папке.
+    В пути запроса указывается {id} папки, в которой создаётся документ.\n
+    Доступ: все авторизованные пользователи.\n
+    """
+    serializer_class = DocumentCreateSerializer
+    queryset = Folder.objects.all()
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if kwargs:
+            folder = Folder.objects.get(pk=str(kwargs["pk"]))
+        else:
+            folder = None
+        if Document.objects.filter(
+            name=serializer.validated_data.get("name"),
+                folder=folder).exists():
+            return Response(
+                data={"Errod": "Document with name already"
+                      "exists in this folder."}
+            )
+        document = Document.objects.create(
+            name=serializer.validated_data.get("name"),
+            description=serializer.validated_data.get("description"),
+            folder=folder,
+            creator=self.request.user.id
+        )
+        if folder is not None:
+            folder.documents.add(document)
+        return Response(document.full_to_dict(),
+                        status=status.HTTP_201_CREATED)
+````
+#### <a>Просмотр документа</a>
+````
+class GetDocumentByIDAPIView(TokenAuthorizationMixin, generics.RetrieveAPIView):
+    """Отображение документа.\n
+    По эндпоинту "/api/document/getting/{id}" отображается документ.\n
+    В пути запроса указывается {id} документа, который нужно отобразить.\n
+    Доступ: создатель документа или разрешенные пользователи.\n
+    """
+    serializer_class = DocumentByIDSerializer
+    queryset = Document.objects.all()
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreatorOrAllowedUser,)
+
+    def get(self, *args, **kwargs):
+        obj = self.get_object()
+        serializer = self.serializer_class(obj)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+````
+#### <a>Удаление документа</a>
+````
+class DestroyDocumentAPIView(TokenAuthorizationMixin, generics.DestroyAPIView):
+    """Удаление документа.\n
+    По эндпоинту "/api/document/deleting/{id}" удаляется документ.\n
+    В пути запроса указывается {id} документа, который нужно удалить.\n
+    Доступ: создателю документа.\n
+    """
+    queryset = Document.objects.all()
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreator,)
+
+    def delete(self, *args, **kwargs):
+        delete_document = self.get_object()
+        if delete_document:
+            resource = DocumentResource.objects.all().filter(
+                related_document=delete_document)
+            delete_document.delete()
+            resource.delete()
+            return Response(data={"Done": "The document has been deleted."},
+                            status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response(data={"Error": "Document not found."},
+                            status=status.HTTP_404_NOT_FOUND)
+````
+#### <a>Редактирование документа</a>
+````
+class DocumentUpdateAPIView(TokenAuthorizationMixin, generics.UpdateAPIView):
+    """Изменение документа.\n
+    По эндпоинту "/api/document/updating/{id}" изменяется документ.\n
+    В пути запроса указывается {id} документа, который нужно изменить.\n
+    Доступ: создателю документа.\n
+    """
+    serializer_class = DocumentUpdateSerializer
+    queryset = Document.objects.all()
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreator,)
+
+    def update(self, request, **kwargs):
+        partial = kwargs.pop('partial', False)
+        document = self.get_object()
+        serializer = self.serializer_class(document,
+                                           data=request.data,
+                                           partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(document.full_to_dict(),
+                        status=status.HTTP_200_OK)
+
+    def put(self, request, **kwargs):
+        return self.update(request, **kwargs)
+
+    def patch(self, request, **kwargs):
+        return self.partial_update(request, **kwargs)
+````
+* ### <a>Ресурс документа</a>
