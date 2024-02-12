@@ -13,6 +13,9 @@
     * [Изменение документа и ресурса](#изменение-документа-и-ресурса)
     * [Получение документа](#получение-документа)
   * [Папка]
+    * [Создание папки]
+    * [Изменение папки]
+    * [Получение папки]
   * [Разрешение]
 * [View функции]
   * [Документ]
@@ -268,7 +271,7 @@ class FolderPermission(UUIDModel):
 ````
 ## <a>Сериализаторы</a>
 * ### <a>Документ</a>
-  * #### <a>Создание документа и ресурса</a>
+#### <a>Создание документа и ресурса</a>
 ````
 class DocumentCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -286,7 +289,7 @@ class DocumentResourceCreateSerializer(serializers.ModelSerializer):
         fields = ["id", "file", "related_document", "set_active"]
         read_only_fields = ("related_document",)
 ````
-  * #### <a>Изменение документа и ресурса</a>
+#### <a>Изменение документа и ресурса</a>
   При изменение документа происходит валидация параметров name и folder. Не допускается одинакового названии двух документов в одной и той же папке.
 ````
 class DocumentUpdateSerializer(serializers.ModelSerializer):
@@ -312,8 +315,15 @@ class RebindDocumentResourceSerializer(serializers.Serializer):
     set_active = serializers.BooleanField(default=True)
     filename = serializers.CharField(read_only=True)
 ````
-  * #### <a>Получение документа</a>
-  Значение resources сериализуется при помощи сериализатора документ ресурса. 
+#### <a>Получение документа</a>
+DocumentSerializer используется как дополнительный сериализатор, при сериализации всех документов при отображении содержимого [папки]().
+````
+class DocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Document
+        fields = ("id", "name")
+````
+DocumentByIDSerializer используется при отображении конкретного документа по его ID.
 ````
 class DocumentByIDSerializer(serializers.ModelSerializer):
     resources = DocumentResourceSerializer(required=False, many=True)
@@ -322,9 +332,49 @@ class DocumentByIDSerializer(serializers.ModelSerializer):
         fields = ("creator", "name", "folder",
                   "description", "resources", "active_version")
 ````
+Значение resources сериализуется при помощи дополнительного сериализатора документ ресурс.
 ````
-<a>class DocumentResourceSerializer(serializers.ModelSerializer):</a>
+class DocumentResourceSerializer(serializers.ModelSerializer):
     class Meta:
         model = DocumentResource
         fields = ("id", "file")
+````
+* ### <a>Папка</a>
+#### <a>Создание папки</a>
+````
+class FolderCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Folder
+        fields = ("id", "name", "location", "documents")
+        read_only_fields = ("documents",)
+````
+#### <a>Изменение папки</a>
+При изменение папки происходит валидация параметров name и location. Не допускается одинакового названии двух папок в одной и той же папке.
+````
+class FolderUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Folder
+        fields = ("id", "name", "location", "documents",)
+        read_only_fields = ("location", "documents",)
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Folder.objects.all(),
+                fields=('name', 'location'),
+                message='Folder with name already exsists in this folder.'
+            )
+        ]
+````
+#### <a>Получение папки</a>
+FolderSerializer используется как дополнительный сериализатор, при сериализации всех папок при отображении содержимого папки.
+````
+class FolderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Folder
+        fields = ("id", "name",)
+````
+FoldersAndDocumentsSerializer используется при отображении содержимого папки.
+````
+class FoldersAndDocumentsSerializer(serializers.Serializer):
+    folders = FolderSerializer(required=False, many=True)
+    documents = DocumentSerializer(required=False, many=True)
 ````
