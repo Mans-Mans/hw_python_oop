@@ -1,88 +1,250 @@
-# Documents menagement module
-Бэкэнд часть модуля управления документами.
+# Руководство разработчика
+## Оглавление 
+* [Модели](#Модели)
+  * Документ
+  * Ресурс документа
+  * Папка
+  * Разрешение документа
+  * Разрешение папки
+* Использованные методы
+  * Путь до файла
+  * Привязка ресурса к документу
+  * Изменение связи ресурс-документ
+* Сериализаторы
+  * Документ
+  * Папка
+  * Разрешение
+* View функции
+  * Документ
+    * Создание документа
+    * Просмотр документа
+    * Удаление документа
+    * Редактирование документа
+  * Ресурс документа
+    * Создание ресурса
+    * Удаление ресурса
+    * Изменение ресурса
+  * Папка
+    * Создание папки
+    * Просмотр папки
+    * Удаление папки
+    * Редактирование папки
+  * Разрешение
+    * Создание разрешения
+    * Удаление разрешения
+    * Просмотр разрешений
+* URL адреса
+  * Документ
+  * Ресурс документа
+  * Папка
+  * Разрешения
+* Панель админа
+  * Документы
+  * Ресурсы документа
+  * Папки
+  * Разрешения
+## <a name="Модели">Модели</a>
+### Документ
+````
+class Document(UUIDModel):
+    """Модель документа.\n
+    Обьект этой модели вернет его UUID.
+    Значение folder хранит UUID папки, в которой распологается документ.
+    Если folder is None значит документ находися на главной странице
+    пользователя."""
+    name = models.CharField(max_length=255, verbose_name="Название документа")
+    description = models.TextField(null=True,
+                                   blank=True,
+                                   verbose_name="Описание")
+    resources = OneToManyField(
+        "documents_management.DocumentResource",
+        verbose_name="Ресурсы",
+        blank=True,
+    )
+    active_version = models.ForeignKey(
+        "documents_management.DocumentResource",
+        verbose_name="",
+        null=True, blank=True,
+        related_name='active',
+        on_delete=models.SET_NULL
+    )
+    folder = models.ForeignKey(
+        Folder,
+        on_delete=models.CASCADE,
+        verbose_name="Расположение документа",
+        related_name='documents_folder',
+        blank=True, null=True,
+    )
+    allowed_user = OneToManyField(
+        DocumentPermission,
+        verbose_name="Разрешенные пользователи",
+        blank=True,
+        related_name="allowed_user_document"
+    )
 
-**Функциональность**
-* Создать, прочитать, удалить, изменить документ.
-* Создать, прочитать, удалить, изменить папку.
-* Создать, удалить, изменить ресурс документа.
-* Документы и папки могут храниться, как в папках, так и не в них.
-* Ресурсы создаются обязательно в документах.
-* Пользователь может дать доступ на прочтение к отдельному документу или папке.
-* Для проосмотра всех документов и папок конкретного пользователя нужна регистрация.
-* Для детального просмотра документа или папки другого пользователя нужен доступ.
+    class Meta:
+        verbose_name = "Документ"
+        verbose_name_plural = "Документы"
 
-### Стек технолигий
-* Python 3.11
-* Django 4.2.3
-* djangorestframework 3.14.0
-* gunicorn 20.1.0
-* Redis 4.6.0
-* Celery 5.3.1
-* Docker
+    def __str__(self):
+        return f"{self.pk}"
 
-### Как запустить проект локально:
+    def is_creator(self, user_id: str):
+        return str(self.creator) == user_id
 
-Клонировать репозиторий и перейти в него в командной строке:
+    def full_to_dict(self):
+        return {
+            "id": self.pk,
+            "name": self.name,
+            "description": self.description,
+            "creator": self.creator,
+            "folder": self.folder.id if self.folder else None,
+            "active_version": self.active_version.id if
+            self.active_version else None,
+            "resources": [resource.id for resource in
+                          list(self.resources.all())]
+        }
+````
+### Ресурс документа
+````
+class DocumentResource(UUIDModel):
+    """Модель ресурса.\n
+    Возвращает UUID ресурса и UUID документа к которому привязан."""
+    related_document = models.ForeignKey(
+        Document,
+        on_delete=models.CASCADE,
+        verbose_name="Документ")
+    file = models.FileField(
+        upload_to=document_resource_file_path)
 
-```
-git clone git@gitlab.it-psg.com:ib-elp-it-psg/documents_management_module.git
-```
+    class Meta:
+        verbose_name = "Ресурс документа"
+        verbose_name_plural = "Ресурсы документов"
 
-```
-cd documents_module
-```
+    def to_dict(self):
+        return {
+            "id": self.pk,
+            "related_document": str(self.related_document),
+            "file": self.file
+        }
 
-Cоздать и активировать виртуальное окружение:
+    def __str__(self):
+        return f"{self.pk}"
+````
+### Папка
+````
+class Folder(UUIDModel):
+    """Модель папки.\n
+    Обьект модели возвращает его PK.\n
+    Значение location хранит UUID папки, в которой распологается текущая
+    папка. Если location пустая значит папка находися на главной странице
+    пользователя."""
+    name = models.CharField(max_length=255, verbose_name="Название папки")
+    documents = OneToManyField(
+        "documents_management.Document",
+        verbose_name="Документы",
+        related_name="documents",
+        blank=True,
+    )
+    location = models.UUIDField(
+        verbose_name="Расположение папки",
+        blank=True, null=True,
+    )
+    allowed_user = OneToManyField(
+        FolderPermission,
+        verbose_name="Разрешенные пользователи",
+        blank=True,
+        related_name="allowed_user_folder"
+    )
 
-```
-python -m venv venv
-```
+    class Meta:
+        verbose_name = "Папка"
+        verbose_name_plural = "Папки"
 
-* Если у вас Linux/macOS
+    def __str__(self):
+        return f"{self.pk}"
 
-    ```
-    source env/bin/activate
-    ```
+    def is_creator(self, user_id: str):
+        return str(self.creator) == user_id
 
-* Если у вас windows
+    def to_dict(self):
+        return {
+            "id": self.pk,
+            "name": self.name,
+            "location": self.location,
+            "documents": [document.id for document in
+                          list(self.documents.all())]
+        }
+````
+### Разрешение документа
+````
+class DocumentPermission(UUIDModel):
+    """Модель доступа к документам.\n
+    Хранит информацию о предоставленных доступах к документам
+    определенным пользователям."""
+    document = models.ForeignKey(
+        "documents_management.Document",
+        on_delete=models.CASCADE,
+        verbose_name="Документ",
+        related_name="document_permission"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="Пользователь",
+        blank=True,
+        related_name="allowed_doc_user"
+    )
 
-    ```
-    source venv/scripts/activate
-    ```
+    class Meta:
+        verbose_name = "Доступ к документу"
+        verbose_name_plural = "Доступы к документам"
+        unique_together = [
+            ["document", "user"]
+        ]
 
-```
-python -m pip install --upgrade pip
-```
+    def to_dict(self):
+        return {
+            "user": self.user.id,
+            "document": self.document
+        }
 
-Установить зависимости из файла requirements.txt:
+    def __str__(self):
+        return f"Permission {self.user} for document {self.document.pk}"
+````
+### Разрешение папки
+````
+class FolderPermission(UUIDModel):
+    """Модель доступа к папкам.\n
+    Хранит информацию о предоставленных доступах к папкам
+    определенным пользователям."""
+    folder = models.ForeignKey(
+        "folders_management.Folder",
+        on_delete=models.CASCADE,
+        verbose_name="Папка",
+        related_name="folder_permission"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="Пользователь",
+        blank=True,
+        related_name="allowed_folder_user"
+    )
 
-```
-pip install -r requirements.txt
-```
+    class Meta:
+        verbose_name = "Доступ к папке"
+        verbose_name_plural = "Доступы к папкам"
+        unique_together = [
+            ["folder", "user"]
+        ]
 
-Выполнить миграции:
+    def to_dict(self):
+        return {
+            "user": self.user.id,
+            "folder": self.folder
+        }
 
-```
-python manage.py makemigrations
-python manage.py migrate
-```
-
-Создайте суперюзера:
-
-```
-python manage.py createsuperuser
-```
-
-Придумайте пароль и логин. 
-Запустите сервер:
-
-```
-
-python manage.py runserver
-
-```
-<!--Пользовательская документация-->
-## Документация
-
-* Статическая документация находится по пути Documents_management_module/documents_module/documents_module/api_docs/schema.yaml
-* Динамическая документация рекомендована для режима разработки. Для доступа к документации необходимо предварительно запустить сервер. Документацию можно получить по [этой ссылке]([./docs/ru/index.md](http://127.0.0.1:8000/api/redoc/)).
+    def __str__(self):
+        return f"Permission {self.user} for folder {self.folder.pk}"
+````
