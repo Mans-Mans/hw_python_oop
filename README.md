@@ -1083,11 +1083,10 @@ cd ../..
 python manage.py makemigrations
 python manage.py migrate
 ```
-Создайте суперюзера:
+Создайте суперюзера. Придумайте пароль и логин:
 ```
 python manage.py createsuperuser
 ```
-Придумайте пароль и логин. 
 Запустите сервер:
 ```
 python manage.py runserver
