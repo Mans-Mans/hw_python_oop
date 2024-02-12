@@ -24,7 +24,7 @@
     * [Создание документа](#создание-документа)
     * [Просмотр документа](#просмотр-документа)
     * [Удаление документа](#удаление-документа)
-    * [Изменение документа](#редактирование-документа)
+    * [Изменение документа](#изменение-документа)
   * [Ресурс документа](#ресурс-документа-1)
     * [Создание ресурса](#создание-ресурса)
       * [Привязка ресурса к документу](#привязка-ресурса-к-документу)
@@ -652,17 +652,159 @@ def rebind_resource_to_document(document: Document,
 ### <a>Папка</a>
 #### <a>Создание папки</a>
 ````
+class FolderCreateAPIView(TokenAuthorizationMixin, generics.CreateAPIView):
+    """Создание папки.\n
+    По эндпоинту "/api/folder/create" папка создаётся без расположения в папке,
+    то есть на главной странице пользователя.\n
+    По эндпоинту "/api/folder/create-in-folder/{id}"
+    новая папка создаётся в папке.
+    В пути запроса указывается {id} папки, в которой создаётся новая папка.\n
+    Доступ: все авторизованные пользователи.\n
+    """
+    serializer_class = FolderCreateSerializer
+    queryset = Folder.objects.all()
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsAuthenticated,)
 
+    def post(self, request, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if kwargs:
+            location = kwargs["pk"]
+        else:
+            location = None
+        if Folder.objects.filter(
+            name=serializer.validated_data.get("name"),
+                location=location).exists():
+            return Response(
+                data={"Error": "Folder with name already"
+                      "exists in this folder."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        folder = Folder.objects.create(
+            name=serializer.validated_data.get("name"),
+            creator=self.request.user.id,
+            location=location
+        )
+        return Response(folder.to_dict(),
+                        status=status.HTTP_201_CREATED)
 ````
 #### <a>Просмотр папки</a>
+Отображение содержимого папки по его ID.
 ````
+class GetFolderByIdAPIView(TokenAuthorizationMixin, generics.RetrieveAPIView):
+    """Отображение папки.\n
+    По эндпоинту "/api/folder/getting/{id}" отображается содержимое папки.\n
+    В пути запроса указывается {id} папки, которую нужно отобразить.\n
+    В папке отображаются только те документы и папки,
+    которые в ней находятся.\n
+    Доступ: создатель папки или разрешенные пользователи.\n
+    """
+    serializer_class = FoldersAndDocumentsSerializer
+    queryset = Folder.objects.all()
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreatorOrAllowedUser,)
+
+    def get(self, *args, **kwargs):
+        obj = self.get_object()
+        folders = Folder.objects.all().filter(location=str(obj))
+        documents = Document.objects.all().filter(folder=str(obj))
+        serializer = self.serializer_class(
+            data={"folders": list(folders.values("id", "name")),
+                  "documents": list(documents.values("id", "name"))}
+        )
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+````
+Отображение папок и документов пользователя по его ID. Отображаются те документы и папки, у которых folder и location is null(на главном экране).
+````
+class GetUserFoldersDocumentsAPIView(TokenAuthorizationMixin, generics.RetrieveAPIView):
+    """Отображение документов и папок пользователя.\n
+    По эндпоинту "/api/folder/getting/user/{id}" отображаются все документы и
+    папки пользователя, которые находятся на главной странице
+    (те, которые не находятся в папках).\n
+    В пути запроса указывается {id} пользователя, документы и папки, которого
+    нужно отобразить.\n
+    Доступ: зарегистрированный пользователь.\n
+    """
+    serializer_class = FoldersAndDocumentsSerializer
+    queryset = User.objects.all()
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, *args, **kwargs):
+        creator = self.get_object()
+        folders = Folder.objects.all().filter(creator=creator.id,
+                                              location=None)
+        documents = Document.objects.all().filter(creator=creator.id,
+                                                  folder=None)
+        serializer = self.serializer_class(
+            data={"folders": list(folders.values("id", "name")),
+                  "documents": list(documents.values("id", "name"))}
+        )
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            data=serializer.data,
+            status=status.HTTP_200_OK
+        )
 
 ````
 #### <a>Удаление папки</a>
+Для удаления папки необходимо предварительно очистить его содержимое.
 ````
+class DestroyFolderAPIView(TokenAuthorizationMixin, generics.DestroyAPIView):
+    """Удаление папки.\n
+    По эндпоинту "/api/folder/deleting/{id}" удаляется папка.\n
+    В пути запроса указывается {id} папки, которую нужно удалить.\n
+    Доступ: создателю папки.\n
+    """
+    queryset = Folder.objects.all()
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreator,)
 
+    def delete(self, request, **kwargs):
+        delete_folder = self.get_object()
+        folders_in_delete_folder = Folder.objects.all().filter(
+            location=delete_folder.id).first()
+        if delete_folder.documents.all() or folders_in_delete_folder:
+            return Response(data={
+                "Error": f"Сlear the contents of the folder{delete_folder.id},"
+                "deletion is not possible."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        delete_folder.delete()
+        return Response(data={"Done": "The folder has been deleted."},
+                        status=status.HTTP_204_NO_CONTENT)
 ````
 #### <a>Изменение папки</a>
+Изменяет название папки.
 ````
+class FolderUpdateAPIView(TokenAuthorizationMixin, generics.UpdateAPIView):
+    """Изменение папки.\n
+    По эндпоинту "/api/folder/updating/{id}" изменяется папка.\n
+    В пути запроса указывается {id} папки, которую нужно изменить.\n
+    Доступ: создателю папки.\n
+    """
+    serializer_class = FolderUpdateSerializer
+    queryset = Folder.objects.all()
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreator,)
 
+    def update(self, request, **kwargs):
+        partial = kwargs.pop('partial', False)
+        folder = self.get_object()
+        serializer = self.serializer_class(folder,
+                                           data=request.data,
+                                           partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+                folder.to_dict(),
+                status=status.HTTP_200_OK)
+
+    def put(self, request, **kwargs):
+        return self.update(request, **kwargs)
+
+    def patch(self, request, **kwargs):
+        return self.partial_update(request, **kwargs)
 ````
