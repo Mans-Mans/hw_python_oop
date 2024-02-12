@@ -1,7 +1,7 @@
 # Руководство разработчика
 ## Оглавление 
 * [Модели](#Модели)
-  * [Документ](#Документ)
+  * [Документ](https://github.com/Mans-Mans/hw_python_oop/blob/master/README.md#документ)
   * [Ресурс документа](https://github.com/Mans-Mans/hw_python_oop/blob/master/README.md#ресурс-документа)
   * [Папка](#Папка)
   * [Разрешение документа](#РазрешениеДокумента)
