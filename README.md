@@ -5,7 +5,7 @@
   * [Ресурс документа](https://github.com/Mans-Mans/hw_python_oop/blob/master/README.md#ресурс-документа)
   * [Папка](https://github.com/Mans-Mans/hw_python_oop/blob/master/README.md#папка)
   * [Разрешение документа](https://github.com/Mans-Mans/hw_python_oop/blob/master/README.md#разрешение-документа)
-  * [(#РазрешениеПапки)](https://github.com/Mans-Mans/hw_python_oop/blob/master/README.md#разрешение-папки)
+  * [РазрешениеПапки](https://github.com/Mans-Mans/hw_python_oop/blob/master/README.md#разрешение-папки)
 * Использованные методы
   * Путь до файла
   * Привязка ресурса к документу
@@ -43,7 +43,7 @@
   * Ресурсы документа
   * Папки
   * Разрешения
-## <a name="Модели">Модели</a>
+## <a>Модели</a>
 ### <a>Документ</a>
 ````
 class Document(UUIDModel):
@@ -105,7 +105,7 @@ class Document(UUIDModel):
                           list(self.resources.all())]
         }
 ````
-### <a name="Ресурсы">Ресурс Документа</a>
+### <a>Ресурс Документа</a>
 ````
 class DocumentResource(UUIDModel):
     """Модель ресурса.\n
@@ -131,7 +131,7 @@ class DocumentResource(UUIDModel):
     def __str__(self):
         return f"{self.pk}"
 ````
-### <a name="Папка">Папка</a>
+### <a>Папка</a>
 ````
 class Folder(UUIDModel):
     """Модель папки.\n
@@ -176,7 +176,7 @@ class Folder(UUIDModel):
                           list(self.documents.all())]
         }
 ````
-### <a name="РазрешениеДокумента">Разрешение документа</a>
+### <a>Разрешение документа</a>
 ````
 class DocumentPermission(UUIDModel):
     """Модель доступа к документам.\n
@@ -212,7 +212,7 @@ class DocumentPermission(UUIDModel):
     def __str__(self):
         return f"Permission {self.user} for document {self.document.pk}"
 ````
-### <a name="РазрешениеПапки">Разрешение папки</a>
+### <a>Разрешение папки</a>
 ````
 class FolderPermission(UUIDModel):
     """Модель доступа к папкам.\n
@@ -248,3 +248,4 @@ class FolderPermission(UUIDModel):
     def __str__(self):
         return f"Permission {self.user} for folder {self.folder.pk}"
 ````
+## <a>Использованные методы</a>
