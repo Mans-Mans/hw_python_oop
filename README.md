@@ -3,7 +3,7 @@
 * [Модели](#модели)
   * [Документ](#документ)
   * [Ресурс документа](#ресурс-документа)
-    * [Путь к файлу](#функция-путь-к-файлу)
+    * [Путь к файлу](#путь-к-файлу)
   * [Папка](#папка)
   * [Разрешение документа](#разрешение-документа)
   * [Разрешение Папки](#разрешение-папки)
@@ -514,4 +514,138 @@ class DocumentUpdateAPIView(TokenAuthorizationMixin, generics.UpdateAPIView):
 ````
 * ### <a>Ресурс документа</a>
 #### <a>Создание ресурса</a>
-##### <a>Функция
+````
+class DocumentResourceCreateAPIView(TokenAuthorizationMixin, generics.CreateAPIView):
+    """Создание ресурса документа.\n
+    По эндпоинту "resource/create/{id}" создаётся ресурс в документе.\n
+    В пути запроса указывается {id} документа, в которой создаётся ресурс.\n
+    Доступ: создателю документа, в которой создаётся ресурс.\n
+    """
+    queryset = Document.objects.all()
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreator,)
+    serializer_class = DocumentResourceCreateSerializer
+
+    def post(self, request, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        document = self.get_object()
+        if document:
+            resource = bind_resource_to_document(
+                document=document,
+                file=serializer.validated_data.get("file"),
+                creator_id=self.request.user.id,
+                set_active=serializer.validated_data.get("set_active")
+            )
+            headers = self.get_success_headers(serializer.data)
+            return Response(
+                {"id": resource.id,
+                 "file": resource.file.url,
+                 "related_document": document.id,
+                 "set_active": serializer.validated_data.get("set_active")},
+                 status=status.HTTP_201_CREATED,
+                 headers=headers)
+        else:
+            return Response(
+                {
+                    "Error": "Document not found."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+````
+При создании ресурса, ресурс привязывается к документу. Привязка происходит в функции [bind_resource_to_document]().
+##### <a>Привязка ресурса к документу</a>
+При set_active = True созданный ресурс становится активной версией в документе.
+````
+def bind_resource_to_document(document: Document, file,
+                              creator_id, set_active: bool):
+    """Привязывает ресурс к документу."""
+    resource = DocumentResource.objects.create(
+        related_document=document,
+        file=file,
+        creator=creator_id
+    )
+    document.resources.add(resource)
+    if set_active:
+        document.active_version = resource
+        document.save()
+    return resource
+````
+#### <a>Удаление ресурса</a>
+````
+class DestroyDocumentResourceAPIView(TokenAuthorizationMixin, generics.DestroyAPIView):
+    """Удаление ресурса документа.\n
+    По эндпоинту "/api/document/resource/deleting/{id}"
+    удаляется ресурс документа.\n
+    В пути запроса указывается {id} ресурса, который нужно удалить.\n
+    Доступ: создателю документа.\n
+    """
+    queryset = DocumentResource.objects.all()
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreator,)
+
+````
+#### <a>Изменение ресурса</a>
+При изменении ресурса меняется документ в котором он находится. Изменение связи документ ресурса происходит в функции [rebind_resource_to_document]().
+````
+class RebindDocumentResource(TokenAuthorizationMixin, generics.UpdateAPIView):
+    """Изменение документ ресурса.\n
+    По эндпоинту "/api/document/resource/rebind/{id}"
+    изменяется документ ресурса.\n
+    В пути запроса указывается {id} ресурса, который нужно изменить.\n
+    Доступ: создателю ресурса.\n
+    """
+    queryset = DocumentResource.objects.all()
+    serializer_class = RebindDocumentResourceSerializer
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (IsCreator,)
+
+    def update(self, request, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        resource = self.get_object()
+        document = Document.objects.filter(
+            pk=serializer.validated_data.get("document")).first()
+        if not document:
+            return Response(
+                data={"Error": "Document with id ="
+                      f"'{serializer.validated_data.get('document')}'"
+                      "not found."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        rebind_resource_to_document(
+            document=document,
+            resource=resource,
+            set_active=serializer.validated_data.get("set_active")
+        )
+        return Response(
+            data=resource.to_dict(),
+            status=status.HTTP_200_OK
+        )
+
+    def put(self, request, **kwargs):
+        return self.update(request, **kwargs)
+
+    def patch(self, request, **kwargs):
+        return self.partial_update(request, **kwargs)
+````
+##### <a>Изменение связи ресурс документ</a>
+````
+def rebind_resource_to_document(document: Document,
+                                resource: DocumentResource,
+                                set_active: bool):
+    """Удаляет ресурс с документа и привязывает его к новому
+    документу."""
+    current_document = Document.objects.filter(
+        pk=str(resource.related_document)).first()
+    if current_document:
+        resource.related_document = document
+        resource.save()
+        current_document.resources.remove(resource)
+        document.resources.add(resource)
+        if set_active:
+            document.active_version = resource
+            document.save()
+        return resource
+    return None
+````
