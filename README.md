@@ -1,11 +1,11 @@
 # Руководство разработчика
 ## Оглавление 
-* [Модели](#Модели)
+* [Модели](https://github.com/Mans-Mans/hw_python_oop/blob/master/README.md#модели)
   * [Документ](https://github.com/Mans-Mans/hw_python_oop/blob/master/README.md#документ)
   * [Ресурс документа](https://github.com/Mans-Mans/hw_python_oop/blob/master/README.md#ресурс-документа)
-  * [Папка](#Папка)
-  * [Разрешение документа](#РазрешениеДокумента)
-  * [Разрешение папки](#РазрешениеПапки)
+  * [Папка](https://github.com/Mans-Mans/hw_python_oop/blob/master/README.md#папка)
+  * [Разрешение документа](https://github.com/Mans-Mans/hw_python_oop/blob/master/README.md#разрешение-документа)
+  * [(#РазрешениеПапки)](https://github.com/Mans-Mans/hw_python_oop/blob/master/README.md#разрешение-папки)
 * Использованные методы
   * Путь до файла
   * Привязка ресурса к документу
