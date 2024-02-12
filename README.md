@@ -9,6 +9,9 @@
   * [РазрешениеПапки](#разрешение-папки)
 * [Сериализаторы]
   * [Документ]
+    * [Создание документа и ресурса]
+    * [Изменение документа и ресурса]
+    * [Получение документа]
   * [Папка]
   * [Разрешение]
 * [View функции]
@@ -44,12 +47,13 @@
   * [Разрешения]
 ## <a>Модели</a>
 ### <a>Документ</a>
+Модель документа наследуется от базовой модели модуля ib_core и имеет __одно обязательное__ поле: название; и __пять необязательных__ полей: описание, ресурсы, активная версия ресурса, папка(расположение документа), разрешенные пользователи. Используется для всех операции связанных с документами.
 ````
 class Document(UUIDModel):
     """Модель документа.\n
     Обьект этой модели вернет его UUID.
     Значение folder хранит UUID папки, в которой распологается документ.
-    Если folder is None значит документ находися на главной странице
+    Если folder is None значит документ находится на главной странице
     пользователя."""
     name = models.CharField(max_length=255, verbose_name="Название документа")
     description = models.TextField(null=True,
@@ -105,6 +109,7 @@ class Document(UUIDModel):
         }
 ````
 ### <a>Ресурс Документа</a>
+Модель ресурс документа наследуется от базовой модели модуля ib_core и имеет __два обязательных__ поля: документ, файл. Используется для создания файла и привязки к определенному документу. Место установки файла описано в функции document_resource_file_path().
 ````
 class DocumentResource(UUIDModel):
     """Модель ресурса.\n
@@ -131,6 +136,7 @@ class DocumentResource(UUIDModel):
         return f"{self.pk}"
 ````
 #### <a>Функция: путь к файлу</a>
+Эта функция сохраняет файл по пути media/documents/{UUIDДокмента}/ и устанавливает ему название в формате "НазваниефайлаДатаРасширениефайла".
 ````
 def document_resource_file_path(instance, filename):
     name, extension = os.path.splitext(filename)
@@ -141,12 +147,13 @@ def document_resource_file_path(instance, filename):
     )
 ````
 ### <a>Папка</a>
+Модель папка наследуется от базовой модели модуля ib_core и имеет __одно обязательное__ поле: название; и __три необязательных__ поля: документы, локация(расположение папки), разрешенные пользователи. Используется для всех операции связанных с папками.
 ````
 class Folder(UUIDModel):
     """Модель папки.\n
     Обьект модели возвращает его PK.\n
     Значение location хранит UUID папки, в которой распологается текущая
-    папка. Если location пустая значит папка находися на главной странице
+    папка. Если location пустая значит папка находится на главной странице
     пользователя."""
     name = models.CharField(max_length=255, verbose_name="Название папки")
     documents = OneToManyField(
@@ -186,6 +193,7 @@ class Folder(UUIDModel):
         }
 ````
 ### <a>Разрешение документа</a>
+Модель наследуется от базовой модели модуля ib_core и имеет __два обязательных__ поля: документ, пользователь. Используется для операции доступа к документу выбранного пользователя.
 ````
 class DocumentPermission(UUIDModel):
     """Модель доступа к документам.\n
@@ -222,6 +230,7 @@ class DocumentPermission(UUIDModel):
         return f"Permission {self.user} for document {self.document.pk}"
 ````
 ### <a>Разрешение папки</a>
+Модель наследуется от базовой модели модуля ib_core и имеет __два обязательных__ поля: папка, пользователь. Используется для операции доступа к папке выбранного пользователя.
 ````
 class FolderPermission(UUIDModel):
     """Модель доступа к папкам.\n
@@ -257,5 +266,24 @@ class FolderPermission(UUIDModel):
     def __str__(self):
         return f"Permission {self.user} for folder {self.folder.pk}"
 ````
-## <a>Использованные методы</a>
-### <a>Путь до файла</a>
+## <a>Сериализаторы</a>
+### <a>Документ</a>
+#### <a>Создание документа и ресурса</a>
+
+````
+class DocumentCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Document
+        fields = ["id", "name", "description", "folder",
+                  "creator", "active_version", "resources"]
+        read_only_fields = ("folder", "creator",
+                            "active_version", "resources")
+````
+````
+class DocumentResourceCreateSerializer(serializers.ModelSerializer):
+    set_active = serializers.BooleanField(default=False)
+    class Meta:
+        model = DocumentResource
+        fields = ["id", "file", "related_document", "set_active"]
+        read_only_fields = ("related_document",)
+````
