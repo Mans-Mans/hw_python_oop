@@ -997,13 +997,17 @@ class GetFolderPermissionAPIView(TokenAuthorizationMixin, generics.ListAPIView):
 ````
 ## <a>Панель админа</a>
 * ### <a>Документы</a>
-
-
+Отображаются UUID документов, их названия, расположение документов, UUID создателя, дата создания.
+![image](https://github.com/Mans-Mans/hw_python_oop/assets/118307945/966974bc-6926-4b60-a72c-b9045ec60f4d)
 * ### <a>Документ ресурсы</a>
-
-
+Отображаются UUID ресурсов, их названия, документ в котором он находится, UUID создателя, дата создания.
+![image](https://github.com/Mans-Mans/hw_python_oop/assets/118307945/3a0fdf58-9d46-42e4-b9a1-6243a4035a8f)
 * ### <a>Папки</a>
-
-
-* ### <a>Разрешения</a>
-
+Отображаются UUID папок, их названия, расположение папок, UUID создателя, дата создания.
+![image](https://github.com/Mans-Mans/hw_python_oop/assets/118307945/19354010-0021-4576-abc6-d99b130a2cc9)
+* ### <a>Разрешение документов</a>
+Отображаются UUID разрешений, UUID документа, email пользователя, UUID создателя, дата создания.
+![image](https://github.com/Mans-Mans/hw_python_oop/assets/118307945/d2fbdb06-6d46-4835-8a9f-b0d1705d28c4)
+* ### <a>Разрешение папок</a>
+Отображаются UUID разрешений, UUID папки, email пользователя, UUID создателя, дата создания.
+![image](https://github.com/Mans-Mans/hw_python_oop/assets/118307945/98c07469-c2c5-4426-8bba-f3afdd327125)
